@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16a34a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nákupy">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Nákupy</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --card: #ffffff; --text: #1a1f1c; --muted: #8a938e;
+    --line: #e6eae8; --accent: #16a34a; --accent-soft: #dcfce7; --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101412; --card: #1a201d; --text: #e9eeeb; --muted: #7d8782;
+      --line: #2a322e; --accent: #22c55e; --accent-soft: #163322;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100dvh; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  input { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+
+  /* ---------- Přihlášení ---------- */
+  #auth { max-width: 380px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 56px) 24px 24px; }
+  #auth .logo { width: 72px; height: 72px; border-radius: 20px; display: block; margin: 0 auto 16px; }
+  #auth h1 { text-align: center; margin: 0 0 4px; font-size: 28px; }
+  #auth p.sub { text-align: center; color: var(--muted); margin: 0 0 28px; }
+  .field { width: 100%; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--card); margin-bottom: 12px; outline: none; }
+  .field:focus { border-color: var(--accent); }
+  .btn { width: 100%; padding: 14px; border: 0; border-radius: 14px; background: var(--accent);
+    color: #fff; font-weight: 600; }
+  .btn:disabled { opacity: .6; }
+  .link { background: none; border: 0; color: var(--accent); padding: 10px; display: block; margin: 8px auto 0; }
+  .err { color: var(--danger); font-size: 15px; min-height: 22px; margin: 4px 0 8px; text-align: center; }
+  .invite-note { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; font-size: 15px; margin-bottom: 18px; text-align: center; }
+
+  /* ---------- Seznam ---------- */
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: calc(env(safe-area-inset-top) + 14px) 16px 10px; }
+  .top { display: flex; align-items: center; justify-content: space-between; max-width: 640px; margin: 0 auto; }
+  .top h1 { margin: 0; font-size: 28px; }
+  .top .count { color: var(--muted); font-size: 15px; margin-left: 8px; font-weight: 400; }
+  .icon-btn { width: 42px; height: 42px; border-radius: 12px; border: 0; background: var(--card);
+    box-shadow: var(--shadow); display: grid; place-items: center; font-size: 22px; line-height: 1; }
+  #addForm { display: flex; gap: 8px; max-width: 640px; margin: 12px auto 0; }
+  #addInput { flex: 1; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--card); outline: none; box-shadow: var(--shadow); }
+  #addInput:focus { border-color: var(--accent); }
+  #addBtn { width: 52px; border: 0; border-radius: 14px; background: var(--accent); color: #fff;
+    font-size: 28px; line-height: 1; }
+  .offline { max-width: 640px; margin: 8px auto 0; font-size: 13px; color: var(--muted); text-align: center; }
+
+  main { max-width: 640px; margin: 0 auto; padding: 4px 16px calc(env(safe-area-inset-bottom) + 40px); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.item { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 14px;
+    padding: 4px 4px 4px 14px; margin-bottom: 8px; box-shadow: var(--shadow); min-height: 54px;
+    user-select: none; transition: background .2s, opacity .2s; }
+  li.item .check { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line);
+    display: grid; place-items: center; transition: all .15s; }
+  li.item .text { flex: 1; padding: 12px 0; word-break: break-word; }
+  li.item .del { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--muted);
+    font-size: 22px; border-radius: 10px; opacity: .55; }
+  li.item.done { background: transparent; box-shadow: none; opacity: .55; }
+  li.item.done .text { text-decoration: line-through; color: var(--muted); }
+  li.item.done .check { background: var(--muted); border-color: var(--muted); }
+  li.item.done .check::after { content: "✓"; color: var(--bg); font-size: 15px; font-weight: 700; }
+  li.item.flash { background: var(--accent-soft); }
+  .divider { display: flex; align-items: center; justify-content: space-between; color: var(--muted);
+    font-size: 14px; margin: 20px 4px 8px; }
+  .divider button { background: none; border: 0; color: var(--muted); font-size: 14px; padding: 6px; text-decoration: underline; }
+  .empty { text-align: center; color: var(--muted); padding: 48px 20px; }
+  .empty div { font-size: 44px; margin-bottom: 8px; }
+
+  /* ---------- Menu ---------- */
+  #sheetBg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--card);
+    border-radius: 20px 20px 0 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 16px);
+    max-width: 640px; margin: 0 auto; }
+  #sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+  #sheet .who { color: var(--muted); font-size: 14px; padding: 4px 8px 12px; }
+  #sheet button { width: 100%; text-align: left; padding: 15px 12px; border: 0; background: none;
+    border-radius: 12px; font-size: 17px; }
+  #sheet button:active { background: var(--bg); }
+  #sheet button.danger { color: var(--danger); }
+
+  /* ---------- Notifikace ---------- */
+  #notif { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--card);
+    border-radius: 20px 20px 0 0; padding: 10px 20px calc(env(safe-area-inset-bottom) + 20px);
+    max-width: 640px; margin: 0 auto; max-height: 90dvh; overflow-y: auto; }
+  #notif h2 { margin: 4px 0 14px; font-size: 21px; }
+  #notif label.lbl { display: block; font-size: 14px; color: var(--muted); margin: 0 0 6px 4px; }
+  .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 4px; margin-bottom: 8px; }
+  .switch { position: relative; width: 52px; height: 32px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 16px; transition: .2s; }
+  .switch span::before { content: ""; position: absolute; width: 26px; height: 26px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::before { transform: translateX(20px); }
+  .steps { background: var(--bg); border-radius: 14px; padding: 14px 16px; font-size: 15px; }
+  .steps ol { margin: 0; padding-left: 20px; }
+  .steps li { margin-bottom: 12px; }
+  .steps a.btn-sm, .steps button.btn-sm { display: inline-block; margin-top: 6px; padding: 9px 14px;
+    border-radius: 10px; border: 0; background: var(--accent); color: #fff; text-decoration: none;
+    font-size: 15px; font-weight: 600; }
+  .steps button.btn-sm.ghost { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+  .topic { font-family: ui-monospace, monospace; font-size: 14px; background: var(--card);
+    padding: 3px 8px; border-radius: 6px; word-break: break-all; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
+    background: #1f2522; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 15px; z-index: 30;
+    opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; }
+  #loading { display: grid; place-items: center; min-height: 100dvh; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="loading">Načítám…</div>
+
+<!-- ===== Přihlášení / registrace ===== -->
+<section id="auth" class="hidden">
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Nákupy</h1>
+  <p class="sub" id="authSub">Společný nákupní seznam</p>
+  <div id="inviteNote" class="invite-note hidden">Máš pozvánku do společného seznamu 🛒<br>Zaregistruj se nebo se přihlas.</div>
+  <form id="authForm">
+    <input class="field" id="email" type="email" placeholder="E-mail" autocomplete="email" required>
+    <input class="field" id="password" type="password" placeholder="Heslo (min. 6 znaků)" autocomplete="current-password" required minlength="6">
+    <div class="err" id="authErr"></div>
+    <button class="btn" id="authBtn" type="submit">Přihlásit se</button>
+  </form>
+  <button class="link" id="switchMode" type="button">Nemám účet – zaregistrovat se</button>
+  <button class="link" id="forgot" type="button">Zapomenuté heslo</button>
+</section>
+
+<!-- ===== Aplikace ===== -->
+<section id="app" class="hidden">
+  <header>
+    <div class="top">
+      <h1>Nákup<span class="count" id="count"></span></h1>
+      <button class="icon-btn" id="menuBtn" aria-label="Menu">⋯</button>
+    </div>
+    <form id="addForm" autocomplete="off">
+      <input id="addInput" placeholder="Přidat položku…" enterkeyhint="done">
+      <button id="addBtn" type="submit" aria-label="Přidat">+</button>
+    </form>
+    <div class="offline hidden" id="offline">Jsi offline – změny se odešlou, až budeš zase online.</div>
+  </header>
+  <main>
+    <ul id="list"></ul>
+    <div class="divider hidden" id="divider">
+      <span id="doneCount"></span>
+      <button id="clearDone">Smazat odškrtnuté</button>
+    </div>
+    <ul id="doneList"></ul>
+    <div class="empty hidden" id="empty"><div>🛒</div>Seznam je prázdný.<br>Přidej první položku nahoře.</div>
+  </main>
+</section>
+
+<div id="sheetBg" class="hidden"></div>
+<div id="sheet" class="hidden">
+  <div class="grab"></div>
+  <div class="who" id="who"></div>
+  <button id="inviteBtn">📨 Pozvat do seznamu (poslat odkaz)</button>
+  <button id="notifBtn">🔔 Notifikace</button>
+  <button id="clearDone2">🧹 Smazat odškrtnuté položky</button>
+  <button id="logoutBtn" class="danger">Odhlásit se</button>
+</div>
+<div id="notif" class="hidden">
+  <div class="grab" style="width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px"></div>
+  <h2>🔔 Notifikace</h2>
+  <label class="lbl" for="myName">Tvoje jméno (uvidí ho druhý v notifikaci)</label>
+  <input class="field" id="myName" placeholder="např. Lukas" maxlength="30">
+  <div class="switch-row">
+    <span>Chci notifikaci, když druhý něco přidá</span>
+    <label class="switch"><input type="checkbox" id="notifOn"><span></span></label>
+  </div>
+  <div class="steps hidden" id="notifSteps">
+    <ol>
+      <li>Nainstaluj si appku <b>ntfy</b>.<br>
+        <a class="btn-sm" href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Otevřít Google Play</a></li>
+      <li>Přihlas se k odběru svého kanálu:<br>
+        <a class="btn-sm" id="ntfySub" href="#">Přihlásit odběr v ntfy</a>
+        <button class="btn-sm ghost" id="copyTopic" type="button">Kopírovat název</button>
+        <div style="margin-top:8px">Kanál: <span class="topic" id="topicName"></span></div>
+        <div class="hint" style="margin-top:6px">Kdyby tlačítko nefungovalo: v ntfy dej <b>+</b> a vlož název kanálu. V nastavení odběru si můžeš dát zobrazovaný název „Nákupy“.</div></li>
+      <li>Vyzkoušej to:<br>
+        <button class="btn-sm" id="testNotif" type="button">Poslat zkušební notifikaci</button></li>
+    </ol>
+  </div>
+  <p class="hint">Název kanálu je tajný – kdo by ho znal, viděl by vaše notifikace. Nikomu ho neposílej.</p>
+  <button class="btn" id="notifClose" type="button" style="margin-top:8px">Hotovo</button>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+/* =========================================================
+   1) SEM VLOŽ KONFIGURACI Z FIREBASE
+   (Firebase Console → Project settings → Your apps → Web app → Config)
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "VLOZ_SEM",
+  authDomain: "VLOZ_SEM.firebaseapp.com",
+  projectId: "VLOZ_SEM",
+  storageBucket: "VLOZ_SEM.appspot.com",
+  messagingSenderId: "VLOZ_SEM",
+  appId: "VLOZ_SEM"
+};
+/* ========================================================= */
+
+const V = "10.12.2";
+const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+        sendPasswordResetEmail, signOut } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
+const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc,
+        updateDoc, deleteDoc, collection, onSnapshot, arrayUnion, writeBatch }
+        = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+
+const $ = id => document.getElementById(id);
+const show = (el, on = true) => el.classList.toggle("hidden", !on);
+
+/* ---------- Pozvánka z odkazu (?join=...) ---------- */
+const params = new URLSearchParams(location.search);
+if (params.get("join")) {
+  localStorage.setItem("pendingJoin", params.get("join"));
+  history.replaceState(null, "", location.pathname);
+}
+
+/* ---------- Toast ---------- */
+let toastT;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------- Přihlášení ---------- */
+let registerMode = false;
+function setMode(reg) {
+  registerMode = reg;
+  $("authBtn").textContent = reg ? "Vytvořit účet" : "Přihlásit se";
+  $("switchMode").textContent = reg ? "Už mám účet – přihlásit se" : "Nemám účet – zaregistrovat se";
+  $("password").autocomplete = reg ? "new-password" : "current-password";
+  $("authErr").textContent = "";
+}
+$("switchMode").onclick = () => setMode(!registerMode);
+
+const authErrors = {
+  "auth/invalid-email": "Neplatný e-mail.",
+  "auth/invalid-credential": "Špatný e-mail nebo heslo.",
+  "auth/wrong-password": "Špatné heslo.",
+  "auth/user-not-found": "Účet s tímto e-mailem neexistuje.",
+  "auth/email-already-in-use": "Tento e-mail už je zaregistrovaný – přihlas se.",
+  "auth/weak-password": "Heslo musí mít aspoň 6 znaků.",
+  "auth/too-many-requests": "Příliš mnoho pokusů, zkus to za chvíli.",
+  "auth/network-request-failed": "Nejde internet."
+};
+
+$("authForm").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("email").value.trim(), pass = $("password").value;
+  $("authBtn").disabled = true; $("authErr").textContent = "";
+  try {
+    if (registerMode) await createUserWithEmailAndPassword(auth, email, pass);
+    else await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    $("authErr").textContent = authErrors[err.code] || "Chyba: " + err.code;
+  }
+  $("authBtn").disabled = false;
+};
+
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!email) { $("authErr").textContent = "Napiš nahoru svůj e-mail."; return; }
+  try { await sendPasswordResetEmail(auth, email); toast("Poslal jsem e-mail pro obnovu hesla."); }
+  catch (err) { $("authErr").textContent = authErrors[err.code] || "Chyba: " + err.code; }
+};
+
+/* ---------- Stav přihlášení ---------- */
+let unsub = null, unsubList = null, listId = null, items = [], listData = {};
+
+onAuthStateChanged(auth, async user => {
+  if (unsub) { unsub(); unsub = null; }
+  if (unsubList) { unsubList(); unsubList = null; }
+  listData = {};
+  show($("loading"), false);
+  if (!user) {
+    show($("app"), false); show($("auth"));
+    const invited = !!localStorage.getItem("pendingJoin");
+    show($("inviteNote"), invited);
+    setMode(invited);
+    return;
+  }
+  show($("auth"), false); show($("app"));
+  $("who").textContent = "Přihlášen: " + user.email;
+  try { await setupList(user); }
+  catch (err) { console.error(err); toast("Nepodařilo se načíst seznam: " + (err.code || err.message)); }
+});
+
+async function setupList(user) {
+  const uref = doc(db, "users", user.uid);
+  const usnap = await getDoc(uref);
+  listId = usnap.exists() ? usnap.data().listId : null;
+
+  const pending = localStorage.getItem("pendingJoin");
+  localStorage.removeItem("pendingJoin");
+  if (pending && pending !== listId) {
+    try {
+      await updateDoc(doc(db, "lists", pending), { members: arrayUnion(user.uid) });
+      listId = pending;
+      await setDoc(uref, { listId }, { merge: true });
+      toast("Jsi připojen/a ke společnému seznamu 🎉");
+    } catch (err) {
+      console.error(err); toast("Pozvánka je neplatná.");
+    }
+  }
+
+  if (!listId) {
+    const lref = doc(collection(db, "lists"));
+    await setDoc(lref, { members: [user.uid], createdAt: Date.now() });
+    listId = lref.id;
+    await setDoc(uref, { listId }, { merge: true });
+  }
+
+  unsubList = onSnapshot(doc(db, "lists", listId), s => { listData = s.data() || {}; },
+    err => console.error(err));
+
+  unsub = onSnapshot(collection(db, "lists", listId, "items"), snap => {
+    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => { console.error(err); toast("Chyba synchronizace: " + err.code); });
+}
+
+/* ---------- Vykreslení ---------- */
+const els = new Map();
+
+function makeEl(it) {
+  const li = document.createElement("li");
+  li.className = "item";
+  li.innerHTML = `<span class="check"></span><span class="text"></span><button class="del" aria-label="Smazat">×</button>`;
+  li.onclick = e => { if (!e.target.closest(".del")) toggle(li.dataset.id); };
+  li.querySelector(".del").onclick = () => removeItem(li.dataset.id);
+  li.dataset.id = it.id;
+  return li;
+}
+
+function render() {
+  // FLIP: zapamatuj si staré pozice, ať položky plynule „sjedou“
+  const before = new Map();
+  els.forEach((el, id) => before.set(id, el.getBoundingClientRect().top));
+
+  const open = items.filter(i => !i.done).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const done = items.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+
+  const seen = new Set();
+  const place = (arr, ul) => arr.forEach(it => {
+    let el = els.get(it.id);
+    if (!el) { el = makeEl(it); els.set(it.id, el); }
+    el.querySelector(".text").textContent = it.text;
+    el.classList.toggle("done", !!it.done);
+    ul.appendChild(el);
+    seen.add(it.id);
+  });
+  place(open, $("list"));
+  place(done, $("doneList"));
+  els.forEach((el, id) => { if (!seen.has(id)) { el.remove(); els.delete(id); } });
+
+  $("count").textContent = open.length ? ` · ${open.length}` : "";
+  $("doneCount").textContent = `Odškrtnuto (${done.length})`;
+  show($("divider"), done.length > 0);
+  show($("empty"), items.length === 0);
+
+  els.forEach((el, id) => {
+    const old = before.get(id);
+    if (old === undefined) return;
+    const dy = old - el.getBoundingClientRect().top;
+    if (Math.abs(dy) > 1) el.animate(
+      [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+      { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" });
+  });
+}
+
+/* ---------- Akce ---------- */
+const itemsCol = () => collection(db, "lists", listId, "items");
+const norm = s => s.trim().toLocaleLowerCase("cs");
+
+$("addForm").onsubmit = async e => {
+  e.preventDefault();
+  const text = $("addInput").value.trim();
+  if (!text || !listId) return;
+  $("addInput").value = "";
+  const existing = items.find(i => norm(i.text) === norm(text));
+  if (existing) {
+    if (existing.done) {
+      // už tam byla odškrtnutá → vrátí se nahoru
+      queueNotify(existing.text);
+      await updateDoc(doc(itemsCol(), existing.id), { done: false, doneAt: null, addedAt: Date.now() });
+    } else {
+      const el = els.get(existing.id);
+      if (el) { el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 900); }
+      toast("Tohle už v seznamu je.");
+    }
+    return;
+  }
+  const ref = doc(itemsCol());
+  setDoc(ref, { text, done: false, addedAt: Date.now(), doneAt: null, by: auth.currentUser.uid });
+  queueNotify(text);
+};
+
+/* ---------- Notifikace přes ntfy ---------- */
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, "");
+const myUid = () => auth.currentUser?.uid;
+const myCfg = () => (listData.topics || {})[myUid()] || {};
+const defaultName = () => (auth.currentUser?.email || "").split("@")[0];
+
+function ntfySend(topic, title, message) {
+  // JSON na kořen ntfy.sh – kvůli diakritice (hlavičky by ji rozbily)
+  return fetch("https://ntfy.sh/", {
+    method: "POST", keepalive: true,
+    body: JSON.stringify({ topic, title, message, tags: ["shopping_cart"],
+      click: APP_URL, icon: APP_URL + "icon-192.png" })
+  });
+}
+
+// Víc položek rychle za sebou → jedna souhrnná notifikace
+let pendingNotify = [], notifyT;
+function queueNotify(text) {
+  pendingNotify.push(text);
+  clearTimeout(notifyT);
+  notifyT = setTimeout(flushNotify, 5000);
+}
+function flushNotify() {
+  clearTimeout(notifyT);
+  if (!pendingNotify.length) return;
+  const names = pendingNotify; pendingNotify = [];
+  const name = myCfg().name || defaultName();
+  for (const [uid, c] of Object.entries(listData.topics || {})) {
+    if (uid === myUid() || !c.enabled || !c.topic) continue;
+    ntfySend(c.topic, `Nákupy · ${name}`, "Přidáno: " + names.join(", ")).catch(() => {});
+  }
+}
+// Když appku zavřeš dřív než za 5 s, pošle se hned
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushNotify();
+});
+
+function randomTopic() {
+  const a = "abcdefghijkmnopqrstuvwxyz23456789";
+  const r = crypto.getRandomValues(new Uint8Array(18));
+  return "nakupy-" + Array.from(r, b => a[b % a.length]).join("");
+}
+
+async function saveCfg(patch) {
+  const cfg = { name: myCfg().name || defaultName(), enabled: false, topic: null, ...myCfg(), ...patch };
+  listData.topics = { ...(listData.topics || {}), [myUid()]: cfg };   // hned lokálně
+  await updateDoc(doc(db, "lists", listId), { [`topics.${myUid()}`]: cfg });
+  return cfg;
+}
+
+function fillNotif() {
+  const c = myCfg();
+  $("myName").value = c.name || defaultName();
+  $("notifOn").checked = !!c.enabled;
+  show($("notifSteps"), !!c.enabled);
+  if (c.topic) {
+    $("topicName").textContent = c.topic;
+    $("ntfySub").href = "ntfy://ntfy.sh/" + c.topic;
+  }
+}
+
+$("notifBtn").onclick = () => { closeSheet(); fillNotif(); show($("sheetBg")); show($("notif")); };
+const closeNotif = () => { show($("notif"), false); show($("sheetBg"), false); };
+$("notifClose").onclick = closeNotif;
+
+$("myName").onchange = () => {
+  const n = $("myName").value.trim();
+  if (n) saveCfg({ name: n });
+};
+
+$("notifOn").onchange = async () => {
+  const on = $("notifOn").checked;
+  try {
+    await saveCfg(on ? { enabled: true, topic: myCfg().topic || randomTopic() } : { enabled: false });
+    fillNotif();
+  } catch (err) { console.error(err); toast("Nepodařilo se uložit: " + err.code); }
+};
+
+$("copyTopic").onclick = async () => {
+  await navigator.clipboard.writeText(myCfg().topic || "");
+  toast("Název kanálu zkopírován.");
+};
+
+$("testNotif").onclick = async () => {
+  try {
+    await ntfySend(myCfg().topic, "Nákupy", "Zkouška – notifikace fungují ✅");
+    toast("Odesláno – mělo by to cinknout.");
+  } catch { toast("Nepodařilo se odeslat (jsi online?)."); }
+};
+
+function toggle(id) {
+  const it = items.find(i => i.id === id); if (!it) return;
+  if (navigator.vibrate) navigator.vibrate(10);
+  const now = Date.now();
+  updateDoc(doc(itemsCol(), id), it.done
+    ? { done: false, doneAt: null, addedAt: now }   // znovu potřeba → nahoru
+    : { done: true, doneAt: now });
+}
+
+function removeItem(id) { deleteDoc(doc(itemsCol(), id)); }
+
+async function clearDone() {
+  closeSheet();
+  const done = items.filter(i => i.done);
+  if (!done.length) { toast("Nic odškrtnutého není."); return; }
+  if (!confirm(`Smazat ${done.length} odškrtnutých položek?`)) return;
+  const b = writeBatch(db);
+  done.forEach(i => b.delete(doc(itemsCol(), i.id)));
+  await b.commit();
+}
+$("clearDone").onclick = clearDone;
+$("clearDone2").onclick = clearDone;
+
+/* ---------- Menu ---------- */
+const openSheet = () => { show($("sheetBg")); show($("sheet")); };
+const closeSheet = () => { show($("sheetBg"), false); show($("sheet"), false); };
+$("menuBtn").onclick = openSheet;
+$("sheetBg").onclick = () => { closeSheet(); closeNotif(); };
+
+$("inviteBtn").onclick = async () => {
+  closeSheet();
+  const url = location.origin + location.pathname + "?join=" + listId;
+  const text = "Pojď se mnou sdílet nákupní seznam 🛒 Otevři odkaz a zaregistruj se:";
+  if (navigator.share) {
+    try { await navigator.share({ title: "Nákupy", text, url }); } catch {}
+  } else {
+    await navigator.clipboard.writeText(text + " " + url);
+    toast("Odkaz zkopírován – pošli ho třeba přes WhatsApp.");
+  }
+};
+
+$("logoutBtn").onclick = () => { closeSheet(); signOut(auth); };
+
+/* ---------- Offline indikátor + service worker ---------- */
+const net = () => show($("offline"), !navigator.onLine);
+addEventListener("online", net); addEventListener("offline", net); net();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
