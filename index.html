@@ -187,7 +187,7 @@
   <label class="lbl" for="myName">Tvoje jméno (uvidí ho druhý v notifikaci)</label>
   <input class="field" id="myName" placeholder="např. Lukas" maxlength="30">
   <div class="switch-row">
-    <span>Chci notifikaci, když druhý něco přidá</span>
+    <span>Chci notifikaci, když druhý něco přidá nebo koupí</span>
     <label class="switch"><input type="checkbox" id="notifOn"><span></span></label>
   </div>
   <div class="steps hidden" id="notifSteps">
@@ -209,20 +209,8 @@
 <div id="toast"></div>
 
 <script type="module">
-/* =========================================================
-   1) SEM VLOŽ KONFIGURACI Z FIREBASE
-   (Firebase Console → Project settings → Your apps → Web app → Config)
-   ========================================================= */
-const firebaseConfig = {
-  apiKey: "AIzaSyCuOawytk1i6vxJZxv1qNpyw_0iwSamR50",
-  authDomain: "nakupy-82c83.firebaseapp.com",
-  projectId: "nakupy-82c83",
-  storageBucket: "nakupy-82c83.firebasestorage.app",
-  messagingSenderId: "649878786826",
-  appId: "1:649878786826:web:432336ab99c51d6f58a0f3",
-  measurementId: "G-SJY5S2D0K5"
-};
-/* ========================================================= */
+// Konfigurace Firebase je v samostatném souboru config.js
+import { firebaseConfig } from "./config.js";
 
 const V = "10.12.2";
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
@@ -434,33 +422,59 @@ const myUid = () => auth.currentUser?.uid;
 const myCfg = () => (listData.topics || {})[myUid()] || {};
 const defaultName = () => (auth.currentUser?.email || "").split("@")[0];
 
-function ntfySend(topic, title, message) {
+function ntfySend(topic, title, message, tag = "shopping_cart") {
   // JSON na kořen ntfy.sh – kvůli diakritice (hlavičky by ji rozbily)
   return fetch("https://ntfy.sh/", {
     method: "POST", keepalive: true,
-    body: JSON.stringify({ topic, title, message, tags: ["shopping_cart"],
+    body: JSON.stringify({ topic, title, message, tags: [tag],
       click: APP_URL, icon: APP_URL + "icon-192.png" })
   });
 }
 
-// Víc položek rychle za sebou → jedna souhrnná notifikace
-let pendingNotify = [], notifyT;
-function queueNotify(text) {
-  pendingNotify.push(text);
+// Sbírání změn → jedna souhrnná notifikace
+// Přidané: odejde za 5 s. Koupené: čeká se, až minutu nic neodškrtneš
+// (ať při nákupu necinká po každé položce). Zavření appky odešle hned.
+const ADD_WAIT = 5000, BOUGHT_WAIT = 60000;
+let pendingAdded = [], pendingBought = [], notifyT;
+function scheduleFlush() {
   clearTimeout(notifyT);
-  notifyT = setTimeout(flushNotify, 5000);
+  if (!pendingAdded.length && !pendingBought.length) return;
+  notifyT = setTimeout(flushNotify, pendingAdded.length ? ADD_WAIT : BOUGHT_WAIT);
+}
+function queueNotify(text) {
+  pendingBought = pendingBought.filter(t => t !== text);   // omylem odškrtnuté a vrácené
+  if (!pendingAdded.includes(text)) pendingAdded.push(text);
+  scheduleFlush();
+}
+function queueBought(text) {
+  if (pendingAdded.includes(text)) {
+    // přidáno a hned koupeno → nic neposílat
+    pendingAdded = pendingAdded.filter(t => t !== text);
+  } else if (!pendingBought.includes(text)) pendingBought.push(text);
+  scheduleFlush();
+}
+function unqueueBought(text) {
+  // odškrtnuto omylem a hned vráceno → koupené se neposílá
+  const was = pendingBought.includes(text);
+  pendingBought = pendingBought.filter(t => t !== text);
+  scheduleFlush();
+  return was;
 }
 function flushNotify() {
   clearTimeout(notifyT);
-  if (!pendingNotify.length) return;
-  const names = pendingNotify; pendingNotify = [];
+  if (!pendingAdded.length && !pendingBought.length) return;
+  const lines = [];
+  if (pendingAdded.length) lines.push("🛒 Přidáno: " + pendingAdded.join(", "));
+  if (pendingBought.length) lines.push("✅ Koupeno: " + pendingBought.join(", "));
+  const tag = pendingAdded.length ? "shopping_cart" : "white_check_mark";
+  pendingAdded = []; pendingBought = [];
   const name = myCfg().name || defaultName();
   for (const [uid, c] of Object.entries(listData.topics || {})) {
     if (uid === myUid() || !c.enabled || !c.topic) continue;
-    ntfySend(c.topic, `Nákupy · ${name}`, "Přidáno: " + names.join(", ")).catch(() => {});
+    ntfySend(c.topic, `Nákupy · ${name}`, lines.join("\n"), tag).catch(() => {});
   }
 }
-// Když appku zavřeš dřív než za 5 s, pošle se hned
+// Když appku zavřeš nebo přepneš jinam, pošle se hned
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushNotify();
 });
@@ -522,6 +536,8 @@ function toggle(id) {
   const it = items.find(i => i.id === id); if (!it) return;
   if (navigator.vibrate) navigator.vibrate(10);
   const now = Date.now();
+  if (it.done) { if (!unqueueBought(it.text)) queueNotify(it.text); }   // vráceno → znovu potřeba
+  else queueBought(it.text);
   updateDoc(doc(itemsCol(), id), it.done
     ? { done: false, doneAt: null, addedAt: now }   // znovu potřeba → nahoru
     : { done: true, doneAt: now });
