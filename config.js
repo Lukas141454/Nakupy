@@ -1,10 +1,9 @@
-// Sem vlož konfiguraci z Firebase (Settings → General → Your apps).
-// Nech na začátku slovo "export".
 export const firebaseConfig = {
-  apiKey: "VLOZ_SEM",
-  authDomain: "VLOZ_SEM.firebaseapp.com",
-  projectId: "VLOZ_SEM",
-  storageBucket: "VLOZ_SEM.appspot.com",
-  messagingSenderId: "VLOZ_SEM",
-  appId: "VLOZ_SEM"
+  apiKey: "AIzaSyCuOawytk1i6vxJZxv1qNpyw_0iwSamR50",
+  authDomain: "nakupy-82c83.firebaseapp.com",
+  projectId: "nakupy-82c83",
+  storageBucket: "nakupy-82c83.firebasestorage.app",
+  messagingSenderId: "649878786826",
+  appId: "1:649878786826:web:432336ab99c51d6f58a0f3",
+  measurementId: "G-SJY5S2D0K5"
 };
